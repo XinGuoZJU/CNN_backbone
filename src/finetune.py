@@ -198,7 +198,12 @@ val_batches_per_epoch = int(np.floor(val_data.data_size / batch_size))
 # Start Tensorflow session
 with tf.Session() as sess:
     # Initialize all variables
-    sess.run(tf.global_variables_initializer())
+    ckpt = tf.train.get_checkpoint_state(checkpoint_path)
+    if ckpt and ckpt.model_checkpoint_path:
+        pass
+    else:
+        sess.run(tf.global_variables_initializer())
+        sess.run(tf.local_variables_initializer())
 
 
     # Load the pretrained weights into the non-trainable layer
@@ -209,7 +214,6 @@ with tf.Session() as sess:
     elif pretrain and mode == 'resnet':
         raise ValueError("Invalid pretrain for resnet") 
     
-    ckpt = tf.train.get_checkpoint_state(checkpoint_path)
     if ckpt and ckpt.model_checkpoint_path:
         print('Training from saved model ...')
         saver.restore(sess, ckpt.model_checkpoint_path)
@@ -225,11 +229,11 @@ with tf.Session() as sess:
     # Loop over number of epochs
     # for epoch in range(num_epochs):
 
-    epoch = math.ceil(global_step.eval()/train_batches_per_epoch) - 1
+    epoch = int(global_step.eval()/train_batches_per_epoch)
     while(epoch < num_epochs):
         epoch += 1
 
-        print("{} Epoch number: {}".format(datetime.now(), epoch+1))
+        print("{} Epoch number: {}".format(datetime.now(), epoch))
 
         # Initialize iterator with the training dataset
         sess.run(training_init_op)
@@ -250,9 +254,9 @@ with tf.Session() as sess:
                                                         y: label_batch,
                                                         keep_prob: 1.})
 
-                writer.add_summary(s, epoch*train_batches_per_epoch + step)
+                writer.add_summary(s, (epoch-1)*train_batches_per_epoch + step)
 
-        if (epoch + 1) % val_step == 0:
+        if epoch % val_step == 0:
             # Validate the model on the entire validation set
             print("{} Start validation".format(datetime.now()))
             sess.run(validation_init_op)
@@ -273,7 +277,7 @@ with tf.Session() as sess:
 
         # save checkpoint of the model
         checkpoint_name = os.path.join(checkpoint_path,
-                                       'model_epoch'+str(epoch+1)+'.ckpt')
+                                       'model_epoch'+str(epoch)+'.ckpt')
         save_path = saver.save(sess, checkpoint_name)
 
         print("{} Model checkpoint saved at {}".format(datetime.now(),
